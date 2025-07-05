@@ -72,11 +72,15 @@ def summarize_with_gemini(text):
 
 分析結果の要約（400字程度）：
 
-短期的目線で買うべきか（100字程度）：
+短期的目線の分析（150字程度）：
 
-中期的目線で買うべきか（100字程度）：
+中期的目線の分析（150字程度）：
 
-長期的目線で買うべきか（100字程度）：
+長期的目線の分析（150字程度）：
+
+最新の状況（40字程度）：
+
+いつ買うべきか（40字程度）：
 
 ---
 
@@ -110,18 +114,40 @@ def get_latest_update_date():
                 latest = newest
     return latest
 
+def extract_latest_summaries():
+    summaries = {}
+    for file in Path(OUTPUT_DIR).glob("*.html"):
+        with open(file, "r", encoding="utf-8") as f:
+            soup = BeautifulSoup(f, "html.parser")
+            pre_tags = soup.find_all("pre")
+            if not pre_tags:
+                continue
+            last_text = pre_tags[-1].text.strip()
+            latest = ""
+            buy_advice = ""
+            for line in last_text.splitlines():
+                if line.startswith("最新の状況："):
+                    latest = line.replace("最新の状況：", "").strip()
+                if line.startswith("いつ買うべきか："):
+                    buy_advice = line.replace("いつ買うべきか：", "").strip()
+            summaries[file.name] = (latest, buy_advice)
+    return summaries
+
 def generate_index_html():
     files = sorted(Path(OUTPUT_DIR).glob("*.html"))
+    summaries = extract_latest_summaries()
     links = "\n".join([
-        f'<li><a href="output/{f.name}">{f.stem.replace(FILTER_SUFFIX, "")}</a></li>'
+        f'<li><a href="output/{f.name}">{f.stem.replace(FILTER_SUFFIX, "")}</a><br>
+        最新の状況：{summaries.get(f.name, ("", ""))[0]}<br>
+        いつ買うべきか：{summaries.get(f.name, ("", ""))[1]}</li>'
         for f in files
     ])
     latest = get_latest_update_date()
     html = f"""<!DOCTYPE html>
-<html lang="ja">
+<html lang=\"ja\">
 <head>
-  <meta charset="UTF-8">
-  <meta name="robots" content="noindex">
+  <meta charset=\"UTF-8\">
+  <meta name=\"robots\" content=\"noindex\">
   <title>米国株レポート一覧</title>
 </head>
 <body>
@@ -203,9 +229,7 @@ def main():
             print(f"[OK] 更新: {title}（{date}）")
 
     generate_index_html()
-    print("[完了] index.html に最終更新日を記載しました")
+    print("[完了] index.html に最終更新日と要約を記載しました")
 
 if __name__ == "__main__":
     main()
-
-    
